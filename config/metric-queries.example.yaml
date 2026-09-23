@@ -1,0 +1,8 @@
+# alertname -> up to 3 PromQL queries. $label placeholders are filled from alert labels.
+HighErrorRate:
+  - name: 5xx ratio
+    query: 100 * sum(rate(http_requests_total{namespace="$namespace",code=~"5.."}[5m])) / sum(rate(http_requests_total{namespace="$namespace"}[5m]))
+    unit: "%"
+KubePodCrashLooping:
+  - name: restarts in 15m
+    query: increase(kube_pod_container_status_restarts_total{namespace="$namespace",pod="$pod"}[15m])
