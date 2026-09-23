@@ -32,7 +32,7 @@ v1 runs in **shadow mode**: it never suppresses, reroutes, or modifies existing 
 Alertmanager ──webhook──▶ sre-reflex bot (k8s, ArgoCD)
    │ (existing routing          │
    │  unchanged)                ├─ 1. collect context ──▶ alert payload, Prometheus, Loki
-   ▼                            ├─ 2. build state (≤ 800 tokens)
+   ▼                            ├─ 2. build state (≤ 250 tokens)
  ntfy (normal alert)            ├─ 3. ask questions ──▶ DecisionModel interface
                                 │        ├─ openjev adapter ──▶ model server (the GPU host, RTX 3060)
                                 │        ├─ ollama adapter  ──▶ Ollama (the GPU host) — LLM baseline
@@ -116,9 +116,10 @@ addresses with placeholders before anything is stored or sent to a model.
 ### State builder (`state.py`)
 
 Concatenates collector sections in fixed order (alert, history, metrics, logs) under
-headers. Enforces a cap of 800 tokens, estimated as `ceil(len(text) / 4)` (no tokenizer download needed),
+headers. Enforces a cap of 250 tokens, estimated as `ceil(len(text) / 4)` (no tokenizer download needed),
 trimming log lines first, then metrics lines. Records which collectors succeeded and the
-final token count.
+final token count. open-jev reads at most 256 state tokens, so the cap keeps both models
+on identical input.
 
 ### Questions (`questions.py`)
 

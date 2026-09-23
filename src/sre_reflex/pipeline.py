@@ -27,7 +27,7 @@ class Pipeline:
         label_base_url: str,
         label_key: str,
         collector_timeout_s: float = 3.0,
-        token_cap: int = 800,
+        token_cap: int = 250,
     ):
         self.collectors = collectors
         self.models = models

@@ -76,7 +76,7 @@ def create_app(model=None) -> FastAPI:
             )
         return DecideResponse(answers=[
             AnswerOut(question_id=q.id, distribution=from_openjev(q, o))
-            for q, o in zip(req.questions, outs)
+            for q, o in zip(req.questions, outs, strict=True)
         ])
 
     @app.get("/healthz")

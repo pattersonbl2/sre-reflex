@@ -17,7 +17,7 @@
 - Python `>=3.12`; `.python-version` is `3.12`.
 - Package name `sre_reflex`, CLI entry point `sre-reflex`, ntfy topic default `sre-reflex`.
 - Shadow mode only: nothing suppresses, reroutes, or edits existing Alertmanager notifications.
-- State cap 800 tokens, estimated as `ceil(len(text) / 4)`; trim logs first, then metrics; never trim the alert section.
+- State cap 250 tokens, estimated as `ceil(len(text) / 4)`; trim logs first, then metrics; never trim the alert section. open-jev reads at most 256 state tokens, so the cap keeps both models on identical input.
 - Question set `Q_VERSION = 1` with ids `actionable` (noul), `severity` (score, 5 options), `self_resolving` (noul).
 - Timeouts: collectors 3 s, openjev 5 s, ollama 30 s.
 - Label links: HMAC-SHA256 over `alert_id|value|exp`, 7-day expiry, single use per signature.

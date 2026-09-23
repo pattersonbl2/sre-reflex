@@ -4,7 +4,7 @@ Alert triage with **decision models** instead of giant LLM context windows.
 
 When Prometheus fires an alert, sre-reflex gathers a small, pre-digested summary
 (the alert, its 7-day history, a few metric trends, deduplicated error logs — under
-800 tokens) and asks narrow questions:
+250 tokens) and asks narrow questions:
 
 | Question | Type |
 |---|---|

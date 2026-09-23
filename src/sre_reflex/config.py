@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     collector_timeout_s: float = 3.0
     openjev_timeout_s: float = 5.0
     ollama_timeout_s: float = 30.0
-    state_token_cap: int = 800
+    state_token_cap: int = 250
 
     @property
     def model_names(self) -> list[str]:

@@ -6,7 +6,7 @@ from sre_reflex.config import Settings, check_startup_security
 def test_defaults(monkeypatch):
     monkeypatch.delenv("ENABLED_MODELS", raising=False)
     s = Settings(_env_file=None)
-    assert s.state_token_cap == 800
+    assert s.state_token_cap == 250
     assert s.ntfy_topic == "sre-reflex"
     assert s.ntfy_url == ""
     assert s.label_hmac_key == "change-me"
