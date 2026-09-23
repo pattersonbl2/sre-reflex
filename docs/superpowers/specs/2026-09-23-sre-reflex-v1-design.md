@@ -31,7 +31,7 @@ v1 runs in **shadow mode**: it never suppresses, reroutes, or modifies existing 
 ```
 Alertmanager ──webhook──▶ sre-reflex bot (k8s, ArgoCD)
    │ (existing routing          │
-   │  unchanged)                ├─ 1. collect context ──▶ Alertmanager API, Prometheus, Loki
+   │  unchanged)                ├─ 1. collect context ──▶ alert payload, Prometheus, Loki
    ▼                            ├─ 2. build state (≤ 800 tokens)
  ntfy (normal alert)            ├─ 3. ask questions ──▶ DecisionModel interface
                                 │        ├─ openjev adapter ──▶ model server (the GPU host, RTX 3060)
@@ -82,6 +82,7 @@ sre-reflex/
       ollama.py
       fake.py           # Deterministic adapter for tests/CI
     store.py
+    migrations/         # SQL migrations (package data)
     notify.py
     labels.py           # /label handler + inference job
     eval/
@@ -89,7 +90,6 @@ sre-reflex/
       report.py
   server/               # open-jev model server (own Dockerfile)
   chart/                # Helm chart for the bot
-    migrations/         # SQL migrations (package data)
   tests/
     fixtures/           # Recorded API responses + ~20 scrubbed sample alerts
   docker-compose.yml    # Postgres + fake model server + ntfy mock for e2e
