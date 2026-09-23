@@ -11,8 +11,10 @@ class AlertCollector:
 
     async def collect(self, alert: AlertmanagerAlert, now: datetime) -> list[str]:
         severity = alert.labels.get("severity", "none")
-        where = ", ".join(
-            f"{k}={v}" for k, v in sorted(alert.labels.items()) if k not in _SKIP_LABELS
+        where = scrub(
+            ", ".join(
+                f"{k}={v}" for k, v in sorted(alert.labels.items()) if k not in _SKIP_LABELS
+            )
         )
         minutes = max(0, int((now - alert.startsAt).total_seconds() // 60))
         lines = [

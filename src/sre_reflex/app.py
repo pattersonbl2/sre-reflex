@@ -11,7 +11,7 @@ from sre_reflex.collectors.alert import AlertCollector
 from sre_reflex.collectors.history import HistoryCollector
 from sre_reflex.collectors.logs import LogsCollector
 from sre_reflex.collectors.metrics import MetricsCollector, load_metric_queries
-from sre_reflex.config import Settings
+from sre_reflex.config import Settings, check_startup_security
 from sre_reflex.labels import LabelResult, record_hand_label
 from sre_reflex.models import build_model
 from sre_reflex.notify import Notifier
@@ -41,6 +41,8 @@ def build_pipeline(settings: Settings, client: httpx.AsyncClient, store) -> Pipe
 
 def create_app(settings: Settings | None = None, *, pipeline=None, store=None) -> FastAPI:
     settings = settings or Settings()
+    if pipeline is None:
+        check_startup_security(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

@@ -38,5 +38,5 @@ services:
       PROMETHEUS_URL: http://unreachable.invalid:9090
       LOKI_URL: http://unreachable.invalid:3100
       PUBLIC_LABEL_URL: http://localhost:8080
-      LABEL_HMAC_KEY: e2e-key
+      LABEL_HMAC_KEY: e2e-test-hmac-key-32-chars-min!!
     ports: ["8080:8080"]

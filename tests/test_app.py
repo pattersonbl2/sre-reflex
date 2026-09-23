@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from stubs import MemoryStore, RecordingPipeline
 
@@ -55,3 +56,21 @@ def test_health_and_metrics():
     with client_for() as c:
         assert c.get("/healthz").json() == {"status": "ok"}
         assert "sre_reflex_alerts_processed_total" in c.get("/metrics").text
+
+
+def test_create_app_refuses_weak_key_on_production_path():
+    settings = Settings(_env_file=None, label_hmac_key="change-me", ntfy_url="https://ntfy.example")
+    with pytest.raises(ValueError, match="LABEL_HMAC_KEY"):
+        create_app(settings)
+
+
+def test_create_app_refuses_empty_ntfy_url_on_production_path():
+    settings = Settings(_env_file=None, label_hmac_key="a" * 32, ntfy_url="")
+    with pytest.raises(ValueError, match="NTFY_URL"):
+        create_app(settings)
+
+
+def test_create_app_skips_check_when_pipeline_injected():
+    settings = Settings(_env_file=None, label_hmac_key="change-me", ntfy_url="")
+    # Should not raise: test/stub path injects a pipeline and store.
+    create_app(settings, pipeline=RecordingPipeline(), store=MemoryStore())

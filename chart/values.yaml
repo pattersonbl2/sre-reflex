@@ -7,6 +7,8 @@ image:
 env: {}
 
 # Name of a Secret providing DATABASE_URL, LABEL_HMAC_KEY and NTFY_TOKEN
+# LABEL_HMAC_KEY must be a random secret of >=32 chars (e.g. openssl rand -hex 32);
+# the app refuses to start with an empty, default ("change-me"), or short key.
 existingSecret: ""
 
 # alertname -> list of {name, query, unit}; see config/metric-queries.example.yaml
