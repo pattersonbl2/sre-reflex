@@ -89,7 +89,7 @@ sre-reflex/
       report.py
   server/               # open-jev model server (own Dockerfile)
   chart/                # Helm chart for the bot
-  migrations/           # SQL migrations
+    migrations/         # SQL migrations (package data)
   tests/
     fixtures/           # Recorded API responses + ~20 scrubbed sample alerts
   docker-compose.yml    # Postgres + fake model server + ntfy mock for e2e
@@ -106,7 +106,7 @@ never raises out of the pipeline.
 | Collector | Source | Output (example) |
 |---|---|---|
 | `alert` | Webhook payload | `Alert HighErrorRate (severity=warning) on service=n8n namespace=n8n, firing 4m.` / summary + description annotations |
-| `history` | Prometheus `ALERTS` / `ALERTS_FOR_STATE` over 7 d | `Fired 14 times in 7 days; auto-resolved 13 times, median duration 3m.` |
+| `history` | Prometheus `ALERTS{alertstate="firing"}` over 7 d, split into episodes | `Fired 14 times in 7 days; resolved 13 times, median duration 3m.` |
 | `metrics` | PromQL from a per-alertname query map (config file); fallback: the alert's own expr | `Error rate rose from 0.2% to 8.1%, sustained 6m.` |
 | `logs` | Loki `query_range`, error-level lines for the alert's namespace/pod, last 15 m | ≤ 25 deduplicated lines, each truncated to 200 chars, scrubbed |
 
@@ -116,7 +116,7 @@ addresses with placeholders before anything is stored or sent to a model.
 ### State builder (`state.py`)
 
 Concatenates collector sections in fixed order (alert, history, metrics, logs) under
-headers. Enforces a cap of 800 tokens (tiktoken `cl100k_base` as an approximation),
+headers. Enforces a cap of 800 tokens, estimated as `ceil(len(text) / 4)` (no tokenizer download needed),
 trimming log lines first, then metrics lines. Records which collectors succeeded and the
 final token count.
 
@@ -186,15 +186,16 @@ If Postgres is unavailable, the message is sent without buttons.
 - **Hand labels** — `/label` verifies HMAC-SHA256 over `alert_id|value|exp` with
   `LABEL_HMAC_KEY`, rejects expired (> 7 d) or already-used signatures (the signature is
   stored on first use), and upserts `labels(source='hand')`. Latest hand label wins.
-- **Inferred labels** — hourly job: an alert that resolved within 10 minutes of firing
+- **Inferred labels** — hourly CronJob running `sre-reflex infer-labels`: an alert that resolved within 10 minutes of firing
   and has no hand label 24 h after resolution gets `labels(value='noise', source='inferred')`.
   No other inference rules in v1; ambiguous alerts stay unlabelled.
 
 ### Eval CLI (`eval/`)
 
-`sre-reflex eval --models openjev,ollama [--labels hand|all] [--since 14d] [--replay]`
+`sre-reflex eval --models openjev,ollama [--labels hand|all] [--since 14d] [--replay] [--fixtures PATH] [--out PATH]`
 
 - Default: evaluate stored decisions. `--replay`: re-run stored states through adapters.
+  `--fixtures`: replay a committed JSONL file instead of the database (used by CI).
 - Ground truth for `actionable`: label `real` = positive. `severity` and
   `self_resolving` have no ground truth in v1; the report shows their distributions
   and inter-model agreement only.
@@ -225,7 +226,7 @@ Alertmanager `resolved` webhooks update `alerts.resolved_at`.
 
 - Webhook returns 200 immediately; processing happens in a background task. Duplicate
   deliveries are deduped on `(fingerprint, fired_at)`.
-- Adapter failure or timeout: record the error, continue with the other adapter; ntfy
+- Adapter failure or timeout: log it and increment `sre_reflex_adapter_errors_total`, continue with the other adapter; ntfy
   shows `openjev: unavailable`.
 - Collector failure: partial state, recorded in `collectors_ok`.
 - Postgres down: ntfy sent without buttons; error logged and counted.
@@ -250,9 +251,9 @@ ServiceMonitor in the Helm chart. Alert rules `SreReflexDown` and
 
 ## Configuration (env)
 
-`ALERTMANAGER_URL`, `PROMETHEUS_URL`, `LOKI_URL`, `MODEL_SERVER_URL`, `OLLAMA_URL`,
+`PROMETHEUS_URL`, `LOKI_URL`, `MODEL_SERVER_URL`, `OLLAMA_URL`,
 `OLLAMA_MODEL`, `DATABASE_URL`, `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN`,
-`PUBLIC_LABEL_URL`, `LABEL_HMAC_KEY`, `METRIC_QUERIES_FILE`.
+`PUBLIC_LABEL_URL`, `LABEL_HMAC_KEY`, `METRIC_QUERIES_FILE`, `ENABLED_MODELS` (default `openjev,ollama`; first is primary in ntfy).
 
 ## Testing
 
