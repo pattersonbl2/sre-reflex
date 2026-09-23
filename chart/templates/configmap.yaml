@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sre-reflex.fullname" . }}
+  labels:
+    {{- include "sre-reflex.labels" . | nindent 4 }}
+data:
+  metric-queries.yaml: |
+    {{- toYaml .Values.metricQueries | nindent 4 }}

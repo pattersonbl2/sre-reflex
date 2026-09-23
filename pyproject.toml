@@ -1,0 +1,45 @@
+[project]
+name = "sre-reflex"
+version = "0.1.0"
+description = "Alert triage with decision models, in shadow mode"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "httpx>=0.27",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "psycopg[binary]>=3.2",
+  "psycopg-pool>=3.2",
+  "prometheus-client>=0.20",
+  "pyyaml>=6.0",
+]
+
+[project.scripts]
+sre-reflex = "sre_reflex.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sre_reflex"]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "respx>=0.21", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["tests"]
+markers = [
+  "db: needs TEST_DATABASE_URL",
+  "live: calls real model endpoints (LIVE_MODELS)",
+  "e2e: needs the docker compose stack",
+]
+addopts = "-m 'not db and not live and not e2e'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

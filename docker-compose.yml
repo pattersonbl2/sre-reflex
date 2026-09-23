@@ -1,0 +1,42 @@
+services:
+  postgres-test:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: sre_reflex
+      POSTGRES_PASSWORD: sre_reflex
+      POSTGRES_DB: sre_reflex_test
+    ports: ["5433:5432"]
+
+  postgres:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: sre_reflex
+      POSTGRES_PASSWORD: sre_reflex
+      POSTGRES_DB: sre_reflex
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "sre_reflex"]
+      interval: 2s
+      retries: 20
+
+  ntfy:
+    image: binwiederhier/ntfy:v2.11.0
+    command: serve
+    ports: ["8081:80"]
+
+  bot:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ntfy:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://sre_reflex:sre_reflex@postgres:5432/sre_reflex
+      ENABLED_MODELS: fake
+      NTFY_URL: http://ntfy
+      PROMETHEUS_URL: http://unreachable.invalid:9090
+      LOKI_URL: http://unreachable.invalid:3100
+      PUBLIC_LABEL_URL: http://localhost:8080
+      LABEL_HMAC_KEY: e2e-test-hmac-key-32-chars-min!!
+    ports: ["8080:8080"]

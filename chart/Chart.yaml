@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sre-reflex
+description: Shadow-mode alert triage with decision models
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
