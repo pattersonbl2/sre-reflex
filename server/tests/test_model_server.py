@@ -1,6 +1,5 @@
 import pytest
 from fastapi.testclient import TestClient
-
 from model_server import create_app
 
 

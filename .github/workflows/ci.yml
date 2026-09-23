@@ -1,0 +1,47 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: sre_reflex
+          POSTGRES_PASSWORD: sre_reflex
+          POSTGRES_DB: sre_reflex_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sre_reflex" --health-interval 2s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run pytest
+      - run: uv run pytest -m db
+        env:
+          TEST_DATABASE_URL: postgresql://sre_reflex:sre_reflex@localhost:5432/sre_reflex_test
+      - run: uv run sre-reflex eval --models fake --fixtures tests/fixtures/samples.jsonl
+
+  model-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - run: uv run pytest
+
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint chart --set image.repository=example/sre-reflex

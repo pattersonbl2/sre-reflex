@@ -1,0 +1,16 @@
+{
+  "version": "4",
+  "status": "firing",
+  "receiver": "sre-reflex",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {"alertname": "HighErrorRate", "severity": "warning", "namespace": "demo"},
+      "annotations": {"summary": "demo 5xx rate above 5%"},
+      "startsAt": "2026-09-23T11:56:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "",
+      "fingerprint": "demo0001"
+    }
+  ]
+}

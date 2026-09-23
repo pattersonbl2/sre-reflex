@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sre-reflex.fullname" . }}
+  labels:
+    {{- include "sre-reflex.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "sre-reflex.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "sre-reflex.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: bot
+          image: {{ include "sre-reflex.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sre-reflex", "serve"]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            {{- include "sre-reflex.env" . | nindent 12 }}
+          {{- include "sre-reflex.envFrom" . | nindent 10 }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "sre-reflex.fullname" . }}

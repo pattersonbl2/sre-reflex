@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "sre-reflex.fullname" . }}-infer-labels
+  labels:
+    {{- include "sre-reflex.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.inferLabels.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+          containers:
+            - name: infer-labels
+              image: {{ include "sre-reflex.image" . }}
+              command: ["sre-reflex", "infer-labels"]
+              env:
+                {{- include "sre-reflex.env" . | nindent 16 }}
+              {{- include "sre-reflex.envFrom" . | nindent 14 }}

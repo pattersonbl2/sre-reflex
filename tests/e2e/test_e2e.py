@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
@@ -16,7 +16,7 @@ DB = os.environ.get("E2E_DATABASE_URL", "postgresql://sre_reflex:sre_reflex@loca
 
 def test_webhook_to_ntfy_and_database():
     fp = uuid4().hex
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     payload = {
         "version": "4", "status": "firing", "receiver": "sre-reflex",
         "alerts": [{

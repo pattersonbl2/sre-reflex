@@ -1,0 +1,27 @@
+image:
+  repository: ""   # required, e.g. ghcr.io/<you>/sre-reflex
+  tag: ""          # defaults to Chart.appVersion
+  pullPolicy: IfNotPresent
+
+# Non-secret settings, e.g. PROMETHEUS_URL, LOKI_URL, MODEL_SERVER_URL, OLLAMA_URL, NTFY_URL
+env: {}
+
+# Name of a Secret providing DATABASE_URL, LABEL_HMAC_KEY and NTFY_TOKEN
+existingSecret: ""
+
+# alertname -> list of {name, query, unit}; see config/metric-queries.example.yaml
+metricQueries: {}
+
+inferLabels:
+  schedule: "17 * * * *"
+
+serviceMonitor:
+  enabled: true
+  labels: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
