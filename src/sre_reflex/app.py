@@ -40,6 +40,7 @@ def build_pipeline(settings: Settings, client: httpx.AsyncClient, store) -> Pipe
         label_key=settings.label_hmac_key,
         collector_timeout_s=settings.collector_timeout_s,
         token_cap=settings.state_token_cap,
+        max_concurrent_alerts=settings.max_concurrent_alerts,
     )
 
 

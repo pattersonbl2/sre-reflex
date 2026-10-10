@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     openjev_timeout_s: float = 5.0
     ollama_timeout_s: float = 30.0
     state_token_cap: int = 250
+    max_concurrent_alerts: int = Field(default=4, ge=1)
 
     @property
     def model_names(self) -> list[str]:

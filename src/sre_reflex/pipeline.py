@@ -28,6 +28,7 @@ class Pipeline:
         label_key: str,
         collector_timeout_s: float = 3.0,
         token_cap: int = 250,
+        max_concurrent_alerts: int = 4,
     ):
         self.collectors = collectors
         self.models = models
@@ -37,11 +38,13 @@ class Pipeline:
         self.label_key = label_key
         self.collector_timeout_s = collector_timeout_s
         self.token_cap = token_cap
+        self._slots = asyncio.Semaphore(max_concurrent_alerts)
 
     async def handle(self, webhook: AlertmanagerWebhook, now: datetime | None = None) -> None:
         for alert in webhook.alerts:
             try:
-                await self.handle_alert(alert, now or datetime.now(UTC))
+                async with self._slots:
+                    await self.handle_alert(alert, now or datetime.now(UTC))
             except Exception:
                 log.exception("failed to triage %s", alert.fingerprint)
 

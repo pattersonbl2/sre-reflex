@@ -109,3 +109,11 @@ def test_webhook_accepts_valid_token():
         )
     assert r.status_code == 202
     assert len(pipeline.webhooks) == 1
+
+
+def test_oversized_label_value_returns_422():
+    bad = {**WEBHOOK, "alerts": [{**WEBHOOK["alerts"][0], "labels": {"alertname": "x" * 5000}}]}
+    pipeline = RecordingPipeline()
+    with client_for(pipeline=pipeline) as c:
+        assert c.post("/alertmanager", json=bad).status_code == 422
+    assert pipeline.webhooks == []

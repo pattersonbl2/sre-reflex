@@ -67,3 +67,28 @@ async def test_failed_model_marked_unavailable(alert, now):
     await pipeline.handle_alert(alert, now)
     assert "broken: unavailable" in notifier.sent[0][1]
     assert [d[1] for d in store.decisions] == ["fake"]
+
+
+async def test_handle_limits_concurrent_alert_processing(alert, now):
+    import asyncio
+
+    active = peak = 0
+
+    class SlowNotifier(RecordingNotifier):
+        async def send(self, title, body, actions=None):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+
+    pipeline = Pipeline(
+        collectors=[], models=[FakeModel()], store=MemoryStore(), notifier=SlowNotifier(),
+        label_base_url="https://x.example", label_key="k", max_concurrent_alerts=2,
+    )
+    webhooks = []
+    for i in range(6):
+        a = alert.model_copy(update={"fingerprint": f"fp{i}"})
+        webhooks.append(AlertmanagerWebhook(status="firing", alerts=[a]))
+    await asyncio.gather(*(pipeline.handle(w, now) for w in webhooks))
+    assert peak == 2
