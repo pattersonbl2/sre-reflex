@@ -72,3 +72,21 @@ def test_decide_mismatched_output_length_returns_500():
             ],
         })
     assert r.status_code == 500
+
+
+def _post(payload):
+    with TestClient(create_app(FakeOpenJev())) as client:
+        return client.post("/decide", json=payload)
+
+
+def test_rejects_oversized_state():
+    q = [{"id": "a", "type": "noul", "text": "t"}]
+    assert _post({"state": "x" * 20_001, "questions": q}).status_code == 422
+    assert _post({"state": "x" * 20_000, "questions": q}).status_code == 200
+
+
+def test_rejects_too_many_questions_or_options():
+    q = {"id": "a", "type": "noul", "text": "t"}
+    assert _post({"state": "s", "questions": [q] * 17}).status_code == 422
+    big = {"id": "a", "type": "choice", "text": "t", "options": ["o"] * 33}
+    assert _post({"state": "s", "questions": [big]}).status_code == 422
