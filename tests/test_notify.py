@@ -47,3 +47,31 @@ async def test_notifier_posts_json_with_token():
         "topic": "sre-reflex", "title": "t", "message": "b", "actions": [{"x": 1}]
     }
     assert req.headers["authorization"] == "Bearer tok"
+
+
+@respx.mock
+async def test_notifier_error_has_status_but_no_url():
+    import pytest
+
+    from sre_reflex.notify import NotifyError
+
+    respx.post("https://ntfy.example/").mock(return_value=httpx.Response(503))
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(NotifyError) as ei:
+            await Notifier(client, "https://ntfy.example", "t", "tok").send("a", "b")
+    assert "503" in str(ei.value)
+    assert "ntfy.example" not in str(ei.value)
+    assert ei.value.__cause__ is None and ei.value.__suppress_context__
+
+
+@respx.mock
+async def test_notifier_connect_error_is_sanitized():
+    import pytest
+
+    from sre_reflex.notify import NotifyError
+
+    respx.post("https://ntfy.example/").mock(side_effect=httpx.ConnectError("boom https://ntfy.example/"))
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(NotifyError) as ei:
+            await Notifier(client, "https://ntfy.example", "t").send("a", "b")
+    assert str(ei.value) == "ntfy delivery failed: ConnectError"

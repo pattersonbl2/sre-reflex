@@ -3,6 +3,7 @@ from datetime import datetime
 import httpx
 
 from sre_reflex.alerts import AlertmanagerAlert
+from sre_reflex.logsafe import describe_exc
 from sre_reflex.models.base import Answer
 from sre_reflex.signing import label_url
 
@@ -47,6 +48,10 @@ def label_actions(base_url: str, key: str, alert_id: int, now: datetime) -> list
     ]
 
 
+class NotifyError(Exception):
+    """ntfy delivery failed; message intentionally carries no URL."""
+
+
 class Notifier:
     def __init__(self, client: httpx.AsyncClient, url: str, topic: str, token: str = ""):
         self.client = client
@@ -59,5 +64,8 @@ class Notifier:
         if actions:
             payload["actions"] = actions
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
-        r = await self.client.post(self.url, json=payload, headers=headers, timeout=10)
-        r.raise_for_status()
+        try:
+            r = await self.client.post(self.url, json=payload, headers=headers, timeout=10)
+            r.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise NotifyError(f"ntfy delivery failed: {describe_exc(exc)}") from None

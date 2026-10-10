@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from sre_reflex.alerts import AlertmanagerAlert, AlertmanagerWebhook
 from sre_reflex.collectors.base import run_collector
+from sre_reflex.logsafe import describe_exc
 from sre_reflex.models.base import Answer
 from sre_reflex.notify import format_message, label_actions
 from sre_reflex.questions import Q_VERSION, QUESTIONS
@@ -45,8 +46,8 @@ class Pipeline:
             try:
                 async with self._slots:
                     await self.handle_alert(alert, now or datetime.now(UTC))
-            except Exception:
-                log.exception("failed to triage %s", alert.fingerprint)
+            except Exception as exc:  # noqa: BLE001 - boundary: log type only, never URLs
+                log.error("failed to triage %s: %s", alert.fingerprint, describe_exc(exc))
 
     async def handle_alert(self, alert: AlertmanagerAlert, now: datetime) -> None:
         if alert.alertname in SKIP_ALERTS:
@@ -60,8 +61,10 @@ class Pipeline:
             alert_id, created = await self.store.upsert_alert(alert)
             if not created:
                 return
-        except Exception:
-            log.exception("store unavailable; notifying without label buttons")
+        except Exception as exc:  # noqa: BLE001 - boundary: log type only, never URLs
+            log.error(
+                "store unavailable; notifying without label buttons: %s", describe_exc(exc)
+            )
 
         results = await asyncio.gather(
             *(run_collector(c, alert, now, self.collector_timeout_s) for c in self.collectors)
@@ -76,8 +79,10 @@ class Pipeline:
                 for name, answers in answers_by_model.items():
                     if answers is not None:
                         await self.store.insert_decisions(state_id, name, Q_VERSION, answers)
-            except Exception:
-                log.exception("failed to persist decisions for %s", alert.fingerprint)
+            except Exception as exc:  # noqa: BLE001 - boundary: log type only, never URLs
+                log.error(
+                    "failed to persist decisions for %s: %s", alert.fingerprint, describe_exc(exc)
+                )
                 alert_id = None
 
         title, body = format_message(alert, answers_by_model, state.collectors_ok)
@@ -93,8 +98,8 @@ class Pipeline:
         start = time.perf_counter()
         try:
             return await model.decide(state_text, QUESTIONS)
-        except Exception:
-            log.warning("model %s failed", model.name, exc_info=True)
+        except Exception as exc:  # noqa: BLE001 - boundary: log type only, never URLs
+            log.warning("model %s failed: %s", model.name, describe_exc(exc))
             ADAPTER_ERRORS.labels(model=model.name).inc()
             return None
         finally:
