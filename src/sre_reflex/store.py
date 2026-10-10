@@ -60,7 +60,15 @@ class Store:
 
     @classmethod
     async def open(cls, url: str) -> "Store":
-        pool = AsyncConnectionPool(url, min_size=1, max_size=5, open=False)
+        # Pin UTF8: on a SQL_ASCII server psycopg returns text as bytes, which
+        # breaks the str comparison in migrate() and re-runs migrations.
+        pool = AsyncConnectionPool(
+            url,
+            min_size=1,
+            max_size=5,
+            open=False,
+            kwargs={"client_encoding": "utf8"},
+        )
         await pool.open(wait=True, timeout=10)
         return cls(pool)
 
