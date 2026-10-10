@@ -1,4 +1,5 @@
 import httpx
+import pytest
 import respx
 
 from sre_reflex.collectors.logs import LogsCollector, dedupe_lines
@@ -47,3 +48,22 @@ async def test_no_namespace_skips_request(alert, now):
     alert.labels = {"alertname": "NodeDown"}
     async with httpx.AsyncClient() as client:
         assert await LogsCollector(client, LOKI).collect(alert, now) == []
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "labels",
+    [
+        {"namespace": 'x"} or {job=~".+"'},
+        {"namespace": "ok", "pod": 'p"} |= "'},
+        {"namespace": "has space"},
+        {"namespace": "a\nb"},
+    ],
+)
+async def test_unsafe_label_values_skip_query(alert, now, labels, caplog):
+    route = respx.route(method="GET", url__startswith=f"{LOKI}/loki/api/v1/query_range")
+    alert.labels = {"alertname": "X", **labels}
+    async with httpx.AsyncClient() as client:
+        assert await LogsCollector(client, LOKI).collect(alert, now) == []
+    assert not route.called
+    assert "unsafe" in caplog.text

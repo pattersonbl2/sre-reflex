@@ -50,6 +50,7 @@ async def test_uses_configured_query_with_label_substitution(alert, now):
 
 @respx.mock
 async def test_falls_back_to_alert_expression_and_skips_nan(alert, now):
+    alert.generatorURL = alert.generatorURL.replace("http://prometheus:9090", PROM)
     route = respx.route(method="GET", url__startswith=f"{PROM}/api/v1/query_range").mock(
         return_value=_prom([[1, "NaN"], [2, "1"], [3, "2"]])
     )
@@ -63,3 +64,33 @@ async def test_no_queries_and_no_expression_returns_nothing(alert, now):
     alert.generatorURL = ""
     async with httpx.AsyncClient() as client:
         assert await MetricsCollector(client, PROM, {}).collect(alert, now) == []
+
+
+@respx.mock
+async def test_label_values_are_escaped_in_promql(alert, now):
+    route = respx.route(method="GET", url__startswith=f"{PROM}/api/v1/query_range").mock(
+        return_value=_prom([[1, "1"]])
+    )
+    alert.labels["namespace"] = 'x"} or vector(1) # \\'
+    queries = {"HighErrorRate": [MetricQuery(name="q", query='up{namespace="$namespace"}')]}
+    async with httpx.AsyncClient() as client:
+        await MetricsCollector(client, PROM, queries).collect(alert, now)
+    sent = route.calls.last.request.url.params["query"]
+    assert sent == 'up{namespace="x\\"} or vector(1) # \\\\"}'
+
+
+async def test_fallback_ignores_foreign_generator_host(alert, now):
+    alert.generatorURL = "http://evil.example/graph?g0.expr=up"
+    async with httpx.AsyncClient() as client:
+        assert await MetricsCollector(client, PROM, {}).collect(alert, now) == []
+
+
+@respx.mock
+async def test_prometheus_calls_set_explicit_timeout(alert, now):
+    alert.generatorURL = alert.generatorURL.replace("http://prometheus:9090", PROM)
+    route = respx.route(method="GET", url__startswith=f"{PROM}/api/v1/query_range").mock(
+        return_value=_prom([[1, "1"]])
+    )
+    async with httpx.AsyncClient() as client:
+        await MetricsCollector(client, PROM, {}, timeout=2.5).collect(alert, now)
+    assert route.calls.last.request.extensions["timeout"]["read"] == 2.5

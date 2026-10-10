@@ -9,6 +9,18 @@ from sre_reflex.telemetry import COLLECTOR_ERRORS
 
 log = logging.getLogger(__name__)
 
+COLLECTOR_HTTP_TIMEOUT_S = 5.0
+
+
+def escape_label_value(value: str) -> str:
+    """Escape a value for use inside a double-quoted PromQL/LogQL string literal."""
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+    )
+
 
 @dataclass
 class CollectorResult:
