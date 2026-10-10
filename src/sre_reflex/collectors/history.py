@@ -4,6 +4,7 @@ from statistics import median
 import httpx
 
 from sre_reflex.alerts import AlertmanagerAlert
+from sre_reflex.collectors.base import COLLECTOR_HTTP_TIMEOUT_S, escape_label_value
 
 STEP_S = 60
 
@@ -45,7 +46,8 @@ class HistoryCollector:
         self.url = prometheus_url.rstrip("/")
 
     async def collect(self, alert: AlertmanagerAlert, now: datetime) -> list[str]:
-        query = f'ALERTS{{alertname="{alert.alertname}",alertstate="firing"}}'
+        name = escape_label_value(alert.alertname)
+        query = f'ALERTS{{alertname="{name}",alertstate="firing"}}'
         r = await self.client.get(
             f"{self.url}/api/v1/query_range",
             params={
@@ -54,6 +56,7 @@ class HistoryCollector:
                 "end": now.timestamp(),
                 "step": str(STEP_S),
             },
+            timeout=COLLECTOR_HTTP_TIMEOUT_S,
         )
         r.raise_for_status()
         eps = []

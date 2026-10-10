@@ -65,7 +65,7 @@ async def run_eval(args: argparse.Namespace, settings: Settings) -> str:
         return render_report(rows, [], f"sre-reflex eval (fixtures: {args.fixtures})")
 
     since = datetime.now(UTC) - parse_since(args.since)
-    store = await Store.open(settings.database_url)
+    store = await Store.open(settings.require_database_url())
     try:
         if args.replay:
             rows = await replay(models, await store.replay_rows(since, args.labels), settings)

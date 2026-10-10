@@ -1,3 +1,6 @@
+# DEVELOPMENT AND CI ONLY. Contains throwaway credentials and a fixed HMAC key;
+# never use this file for a real deployment (use the Helm chart + Secrets).
+# Published ports are bound to loopback so the stack is not exposed on the LAN.
 services:
   postgres-test:
     image: postgres:16.4
@@ -5,7 +8,7 @@ services:
       POSTGRES_USER: sre_reflex
       POSTGRES_PASSWORD: sre_reflex
       POSTGRES_DB: sre_reflex_test
-    ports: ["5433:5432"]
+    ports: ["127.0.0.1:5433:5432"]
 
   postgres:
     image: postgres:16.4
@@ -13,7 +16,7 @@ services:
       POSTGRES_USER: sre_reflex
       POSTGRES_PASSWORD: sre_reflex
       POSTGRES_DB: sre_reflex
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "sre_reflex"]
       interval: 2s
@@ -22,7 +25,7 @@ services:
   ntfy:
     image: binwiederhier/ntfy:v2.11.0
     command: serve
-    ports: ["8081:80"]
+    ports: ["127.0.0.1:8081:80"]
 
   bot:
     build: .
@@ -39,4 +42,4 @@ services:
       LOKI_URL: http://unreachable.invalid:3100
       PUBLIC_LABEL_URL: http://localhost:8080
       LABEL_HMAC_KEY: e2e-test-hmac-key-32-chars-min!!
-    ports: ["8080:8080"]
+    ports: ["127.0.0.1:8080:8080"]

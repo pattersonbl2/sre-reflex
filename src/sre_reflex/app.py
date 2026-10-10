@@ -1,8 +1,10 @@
+import hmac
+import logging
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import httpx
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -17,6 +19,8 @@ from sre_reflex.models import build_model
 from sre_reflex.notify import Notifier
 from sre_reflex.pipeline import Pipeline
 from sre_reflex.store import Store
+
+log = logging.getLogger(__name__)
 
 
 def build_pipeline(settings: Settings, client: httpx.AsyncClient, store) -> Pipeline:
@@ -36,6 +40,7 @@ def build_pipeline(settings: Settings, client: httpx.AsyncClient, store) -> Pipe
         label_key=settings.label_hmac_key,
         collector_timeout_s=settings.collector_timeout_s,
         token_cap=settings.state_token_cap,
+        max_concurrent_alerts=settings.max_concurrent_alerts,
     )
 
 
@@ -43,6 +48,23 @@ def create_app(settings: Settings | None = None, *, pipeline=None, store=None) -
     settings = settings or Settings()
     if pipeline is None:
         check_startup_security(settings)
+    if not settings.webhook_token:
+        log.warning(
+            "WEBHOOK_TOKEN is not set: POST /alertmanager accepts unauthenticated requests"
+        )
+
+    def require_webhook_token(request: Request) -> None:
+        expected = settings.webhook_token
+        if not expected:
+            return
+        header = request.headers.get("authorization", "")
+        scheme, _, supplied = header.partition(" ")
+        if scheme.lower() != "bearer" or not hmac.compare_digest(
+            supplied.strip().encode(), expected.encode()
+        ):
+            raise HTTPException(
+                401, "unauthorized", headers={"WWW-Authenticate": "Bearer"}
+            )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -51,7 +73,7 @@ def create_app(settings: Settings | None = None, *, pipeline=None, store=None) -
             yield
             return
         async with httpx.AsyncClient() as client:
-            db = await Store.open(settings.database_url)
+            db = await Store.open(settings.require_database_url())
             await db.migrate()
             app.state.store = db
             app.state.pipeline = build_pipeline(settings, client, db)
@@ -62,14 +84,14 @@ def create_app(settings: Settings | None = None, *, pipeline=None, store=None) -
 
     app = FastAPI(title="sre-reflex", lifespan=lifespan)
 
-    @app.post("/alertmanager", status_code=202)
+    @app.post("/alertmanager", status_code=202, dependencies=[Depends(require_webhook_token)])
     async def alertmanager(
         webhook: AlertmanagerWebhook, background: BackgroundTasks, request: Request
     ) -> dict:
         background.add_task(request.app.state.pipeline.handle, webhook)
         return {"status": "accepted"}
 
-    @app.api_route("/label", methods=["GET", "POST"], response_class=PlainTextResponse)
+    @app.post("/label", response_class=PlainTextResponse)
     async def label(request: Request, a: int, v: str, exp: int, sig: str) -> str:
         result = await record_hand_label(
             request.app.state.store, settings.label_hmac_key, a, v, exp, sig,

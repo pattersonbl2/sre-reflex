@@ -6,7 +6,9 @@ image:
 # Non-secret settings, e.g. PROMETHEUS_URL, LOKI_URL, MODEL_SERVER_URL, OLLAMA_URL, NTFY_URL
 env: {}
 
-# Name of a Secret providing DATABASE_URL, LABEL_HMAC_KEY and NTFY_TOKEN
+# Name of a Secret providing DATABASE_URL, LABEL_HMAC_KEY and NTFY_TOKEN, plus the
+# optional WEBHOOK_TOKEN (all keys are injected as env vars via envFrom). When
+# WEBHOOK_TOKEN is present, POST /alertmanager requires `Authorization: Bearer <token>`.
 # LABEL_HMAC_KEY must be a random secret of >=32 chars (e.g. openssl rand -hex 32);
 # the app refuses to start with an empty, default ("change-me"), or short key.
 existingSecret: ""
@@ -27,3 +29,15 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# Optional NetworkPolicy restricting ingress to the bot's port 8080. Disabled by default.
+# NOTE: when enabled, ONLY the peers below can reach the pod, so include everything that
+# needs it: Alertmanager, your ingress controller (for the public /label endpoint) and
+# Prometheus (for /metrics scraping).
+networkPolicy:
+  enabled: false
+  # List of NetworkPolicy "from" peers, e.g.:
+  # ingressFrom:
+  #   - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+  #     podSelector: {matchLabels: {app.kubernetes.io/name: alertmanager}}
+  ingressFrom: []

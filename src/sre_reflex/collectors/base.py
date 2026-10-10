@@ -5,9 +5,22 @@ from datetime import datetime
 from typing import Protocol
 
 from sre_reflex.alerts import AlertmanagerAlert
+from sre_reflex.logsafe import describe_exc
 from sre_reflex.telemetry import COLLECTOR_ERRORS
 
 log = logging.getLogger(__name__)
+
+COLLECTOR_HTTP_TIMEOUT_S = 5.0
+
+
+def escape_label_value(value: str) -> str:
+    """Escape a value for use inside a double-quoted PromQL/LogQL string literal."""
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+    )
 
 
 @dataclass
@@ -29,7 +42,9 @@ async def run_collector(
     try:
         lines = await asyncio.wait_for(collector.collect(alert, now), timeout_s)
         return CollectorResult(collector.name, lines, True)
-    except Exception:
-        log.warning("collector %s failed for %s", collector.name, alert.fingerprint, exc_info=True)
+    except Exception as exc:  # noqa: BLE001 - boundary: log type only, never URLs
+        log.warning(
+            "collector %s failed for %s: %s", collector.name, alert.fingerprint, describe_exc(exc)
+        )
         COLLECTOR_ERRORS.labels(collector=collector.name).inc()
         return CollectorResult(collector.name, [], False)

@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,18 +10,29 @@ class Settings(BaseSettings):
     model_server_url: str = "http://model-server:8000"
     ollama_url: str = "http://ollama:11434"
     ollama_model: str = "qwen3:8b"
-    database_url: str = "postgresql://sre_reflex:sre_reflex@localhost:5432/sre_reflex"
+    database_url: str = ""  # required; no built-in credential default
     ntfy_url: str = ""
     ntfy_topic: str = "sre-reflex"
     ntfy_token: str = ""
     public_label_url: str = "http://localhost:8080"
     label_hmac_key: str = "change-me"
+    # Optional shared secret for POST /alertmanager (Authorization: Bearer <token>).
+    webhook_token: str = ""
     metric_queries_file: str = ""
     enabled_models: str = "openjev,ollama"
     collector_timeout_s: float = 3.0
     openjev_timeout_s: float = 5.0
     ollama_timeout_s: float = 30.0
     state_token_cap: int = 250
+    max_concurrent_alerts: int = Field(default=4, ge=1)
+
+    def require_database_url(self) -> str:
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL is not set. Provide a Postgres URL, e.g. via .env "
+                "(see .env.example) or the Secret referenced by the chart."
+            )
+        return self.database_url
 
     @property
     def model_names(self) -> list[str]:
@@ -34,6 +46,7 @@ def check_startup_security(settings: "Settings") -> None:
     (e.g. `sre-reflex migrate` / `sre-reflex infer-labels`), and is skipped
     whenever a test/stub pipeline is injected directly into `create_app`.
     """
+    settings.require_database_url()
     key = settings.label_hmac_key
     if not key or key == "change-me" or len(key.encode()) < 32:
         raise ValueError(

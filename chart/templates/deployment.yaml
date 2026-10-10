@@ -16,14 +16,24 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: bot
           image: {{ include "sre-reflex.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["sre-reflex", "serve"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - name: http
               containerPort: 8080
@@ -40,7 +50,11 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
+            - name: tmp
+              mountPath: /tmp
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: config
           configMap:
             name: {{ include "sre-reflex.fullname" . }}

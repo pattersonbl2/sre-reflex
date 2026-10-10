@@ -1,26 +1,33 @@
 """HTTP wrapper around open-jev (typed_decisions.OpenJev)."""
 import os
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Histogram, generate_latest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 MODEL_ID = os.environ.get("OPENJEV_MODEL", "com-kotobalabs/open-jev-deberta-v3-large")
 DECIDE_SECONDS = Histogram("openjev_decide_seconds", "open-jev decide latency")
 
 
+MAX_STATE_CHARS = 20_000
+MAX_QUESTIONS = 16
+MAX_OPTIONS = 32
+
+
 class Question(BaseModel):
-    id: str
+    id: str = Field(max_length=64)
     type: Literal["noul", "score", "choice"]
-    text: str
-    options: list[str] = []
+    text: str = Field(max_length=2_000)
+    options: list[Annotated[str, Field(max_length=200)]] = Field(
+        default=[], max_length=MAX_OPTIONS
+    )
 
 
 class DecideRequest(BaseModel):
-    state: str
-    questions: list[Question]
+    state: str = Field(max_length=MAX_STATE_CHARS)
+    questions: list[Question] = Field(max_length=MAX_QUESTIONS)
 
 
 class AnswerOut(BaseModel):

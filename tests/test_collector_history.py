@@ -36,3 +36,15 @@ async def test_counts_firings_and_median_duration(alert, now):
 
     assert lines == ["Fired 3 times in 7 days; resolved 2 times, median duration 4m."]
     assert 'alertname="HighErrorRate"' in route.calls.last.request.url.params["query"]
+
+
+@respx.mock
+async def test_alertname_is_escaped_and_timeout_set(alert, now):
+    route = respx.route(method="GET", url__startswith=f"{PROM}/api/v1/query_range")
+    route.mock(return_value=httpx.Response(200, json={"data": {"result": []}}))
+    alert.labels["alertname"] = 'X"} or vector(1) #'
+    async with httpx.AsyncClient() as client:
+        await HistoryCollector(client, PROM).collect(alert, now)
+    req = route.calls.last.request
+    assert req.url.params["query"] == 'ALERTS{alertname="X\\"} or vector(1) #",alertstate="firing"}'
+    assert req.extensions["timeout"]["read"] == 5.0

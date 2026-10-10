@@ -67,3 +67,51 @@ async def test_failed_model_marked_unavailable(alert, now):
     await pipeline.handle_alert(alert, now)
     assert "broken: unavailable" in notifier.sent[0][1]
     assert [d[1] for d in store.decisions] == ["fake"]
+
+
+async def test_handle_limits_concurrent_alert_processing(alert, now):
+    import asyncio
+
+    active = peak = 0
+
+    class SlowNotifier(RecordingNotifier):
+        async def send(self, title, body, actions=None):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+
+    pipeline = Pipeline(
+        collectors=[], models=[FakeModel()], store=MemoryStore(), notifier=SlowNotifier(),
+        label_base_url="https://x.example", label_key="k", max_concurrent_alerts=2,
+    )
+    webhooks = []
+    for i in range(6):
+        a = alert.model_copy(update={"fingerprint": f"fp{i}"})
+        webhooks.append(AlertmanagerWebhook(status="firing", alerts=[a]))
+    await asyncio.gather(*(pipeline.handle(w, now) for w in webhooks))
+    assert peak == 2
+
+
+async def test_failure_logs_do_not_leak_urls(alert, now, caplog):
+    import httpx
+
+    from sre_reflex.notify import Notifier
+
+    secret = "https://ntfy.secret.example/"
+
+    def handler(request):
+        return httpx.Response(500)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        pipeline = Pipeline(
+            collectors=[], models=[FakeModel()], store=MemoryStore(),
+            notifier=Notifier(client, secret, "t"),
+            label_base_url="https://labels.example", label_key="k",
+        )
+        await pipeline.handle(AlertmanagerWebhook(status="firing", alerts=[alert]), now)
+    assert "failed to triage" in caplog.text
+    assert "status=500" in caplog.text or "NotifyError" in caplog.text
+    assert "ntfy.secret.example" not in caplog.text
+    assert "sig=" not in caplog.text

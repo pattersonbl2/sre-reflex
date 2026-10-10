@@ -71,7 +71,21 @@ inter-model agreement for questions without ground truth.
 - Bot: Helm chart in `chart/` (`image.repository`, `env`, `existingSecret`, `metricQueries`).
 - Model server: `server/Dockerfile` on a GPU host (`OPENJEV_MODEL`, port 8000).
 - Point an Alertmanager receiver at `http://<service>:8080/alertmanager`; expose only
-  `/label` publicly.
+  `/label` publicly (it accepts POST only).
+- Set `WEBHOOK_TOKEN` (add it as a key in the `existingSecret`) to require a bearer
+  token on `/alertmanager`; without it the endpoint is unauthenticated and the bot logs
+  a warning at startup. Matching Alertmanager receiver config:
+
+  ```yaml
+  receivers:
+    - name: sre-reflex
+      webhook_configs:
+        - url: http://<service>:8080/alertmanager
+          http_config:
+            authorization:
+              type: Bearer
+              credentials_file: /etc/alertmanager/secrets/sre-reflex-token
+  ```
 
 ## Licence
 
