@@ -29,3 +29,15 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# Optional NetworkPolicy restricting ingress to the bot's port 8080. Disabled by default.
+# NOTE: when enabled, ONLY the peers below can reach the pod, so include everything that
+# needs it: Alertmanager, your ingress controller (for the public /label endpoint) and
+# Prometheus (for /metrics scraping).
+networkPolicy:
+  enabled: false
+  # List of NetworkPolicy "from" peers, e.g.:
+  # ingressFrom:
+  #   - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+  #     podSelector: {matchLabels: {app.kubernetes.io/name: alertmanager}}
+  ingressFrom: []

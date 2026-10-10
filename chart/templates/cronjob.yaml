@@ -13,13 +13,29 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            - name: tmp
+              emptyDir: {}
           containers:
             - name: infer-labels
               image: {{ include "sre-reflex.image" . }}
               command: ["sre-reflex", "infer-labels"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
               env:
                 {{- include "sre-reflex.env" . | nindent 16 }}
               {{- include "sre-reflex.envFrom" . | nindent 14 }}
