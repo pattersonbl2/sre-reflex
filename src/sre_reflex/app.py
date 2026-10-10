@@ -73,7 +73,7 @@ def create_app(settings: Settings | None = None, *, pipeline=None, store=None) -
             yield
             return
         async with httpx.AsyncClient() as client:
-            db = await Store.open(settings.database_url)
+            db = await Store.open(settings.require_database_url())
             await db.migrate()
             app.state.store = db
             app.state.pipeline = build_pipeline(settings, client, db)

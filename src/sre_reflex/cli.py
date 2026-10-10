@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 async def _migrate(settings: Settings) -> None:
-    store = await Store.open(settings.database_url)
+    store = await Store.open(settings.require_database_url())
     try:
         await store.migrate()
     finally:
@@ -29,7 +29,7 @@ async def _migrate(settings: Settings) -> None:
 
 
 async def _infer(settings: Settings) -> int:
-    store = await Store.open(settings.database_url)
+    store = await Store.open(settings.require_database_url())
     try:
         return await infer_labels(store, datetime.now(UTC))
     finally:

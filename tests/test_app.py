@@ -59,13 +59,18 @@ def test_health_and_metrics():
 
 
 def test_create_app_refuses_weak_key_on_production_path():
-    settings = Settings(_env_file=None, label_hmac_key="change-me", ntfy_url="https://ntfy.example")
+    settings = Settings(
+        _env_file=None, label_hmac_key="change-me", ntfy_url="https://ntfy.example",
+        database_url="postgresql://u@h/d",
+    )
     with pytest.raises(ValueError, match="LABEL_HMAC_KEY"):
         create_app(settings)
 
 
 def test_create_app_refuses_empty_ntfy_url_on_production_path():
-    settings = Settings(_env_file=None, label_hmac_key="a" * 32, ntfy_url="")
+    settings = Settings(
+        _env_file=None, label_hmac_key="a" * 32, ntfy_url="", database_url="postgresql://u@h/d"
+    )
     with pytest.raises(ValueError, match="NTFY_URL"):
         create_app(settings)
 

@@ -20,7 +20,11 @@ def test_model_names_from_env(monkeypatch):
 
 
 def _settings(**overrides):
-    defaults = {"label_hmac_key": "a" * 32, "ntfy_url": "https://ntfy.internal.example"}
+    defaults = {
+        "label_hmac_key": "a" * 32,
+        "ntfy_url": "https://ntfy.internal.example",
+        "database_url": "postgresql://u@db/x",
+    }
     defaults.update(overrides)
     return Settings(_env_file=None, **defaults)
 
@@ -38,3 +42,16 @@ def test_check_startup_security_rejects_empty_ntfy_url():
 
 def test_check_startup_security_accepts_strong_config():
     check_startup_security(_settings())
+
+
+def test_database_url_has_no_builtin_default():
+    s = Settings(_env_file=None, database_url="")
+    assert s.database_url == ""
+    with pytest.raises(ValueError, match="DATABASE_URL"):
+        s.require_database_url()
+    assert Settings(_env_file=None, database_url="postgresql://u@h/d").require_database_url()
+
+
+def test_check_startup_security_requires_database_url():
+    with pytest.raises(ValueError, match="DATABASE_URL"):
+        check_startup_security(_settings(database_url=""))
