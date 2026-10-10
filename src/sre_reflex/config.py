@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     ntfy_token: str = ""
     public_label_url: str = "http://localhost:8080"
     label_hmac_key: str = "change-me"
+    # Optional shared secret for POST /alertmanager (Authorization: Bearer <token>).
+    webhook_token: str = ""
     metric_queries_file: str = ""
     enabled_models: str = "openjev,ollama"
     collector_timeout_s: float = 3.0

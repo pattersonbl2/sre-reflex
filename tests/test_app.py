@@ -24,9 +24,9 @@ WEBHOOK = {
 }
 
 
-def client_for(pipeline=None, store=None):
+def client_for(pipeline=None, store=None, **settings):
     app = create_app(
-        Settings(_env_file=None, label_hmac_key="k"),
+        Settings(_env_file=None, label_hmac_key="k", **settings),
         pipeline=pipeline or RecordingPipeline(),
         store=store or MemoryStore(),
     )
@@ -47,7 +47,7 @@ def test_label_ok_then_reused_then_tampered():
     params = {"a": 1, "v": "real", "exp": exp, "sig": sign("k", 1, "real", exp)}
     with client_for(store=store) as c:
         assert c.post("/label", params=params).status_code == 200
-        assert c.get("/label", params=params).status_code == 409
+        assert c.post("/label", params=params).status_code == 409
         assert c.post("/label", params={**params, "v": "noise"}).status_code == 403
     assert store.labels == [(1, "real", "hand")]
 
@@ -74,3 +74,38 @@ def test_create_app_skips_check_when_pipeline_injected():
     settings = Settings(_env_file=None, label_hmac_key="change-me", ntfy_url="")
     # Should not raise: test/stub path injects a pipeline and store.
     create_app(settings, pipeline=RecordingPipeline(), store=MemoryStore())
+
+
+def test_label_rejects_get():
+    exp = int((datetime.now(UTC) + timedelta(days=1)).timestamp())
+    params = {"a": 1, "v": "real", "exp": exp, "sig": sign("k", 1, "real", exp)}
+    with client_for() as c:
+        assert c.get("/label", params=params).status_code == 405
+
+
+def test_webhook_open_when_token_unset():
+    with client_for() as c:
+        assert c.post("/alertmanager", json=WEBHOOK).status_code == 202
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Authorization": "Bearer wrong"}, {"Authorization": "secret-token"},
+     {"Authorization": "Basic secret-token"}, {"Authorization": "Bearer "}],
+)
+def test_webhook_rejects_bad_token(headers):
+    pipeline = RecordingPipeline()
+    with client_for(pipeline=pipeline, webhook_token="secret-token") as c:
+        r = c.post("/alertmanager", json=WEBHOOK, headers=headers)
+    assert r.status_code == 401
+    assert pipeline.webhooks == []
+
+
+def test_webhook_accepts_valid_token():
+    pipeline = RecordingPipeline()
+    with client_for(pipeline=pipeline, webhook_token="secret-token") as c:
+        r = c.post(
+            "/alertmanager", json=WEBHOOK, headers={"Authorization": "Bearer secret-token"}
+        )
+    assert r.status_code == 202
+    assert len(pipeline.webhooks) == 1
